@@ -20,6 +20,8 @@ function getDatabaseUri() {
     `postgresql://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}`
   );
 }
+
+const BCRYPT_WORK_FACTOR = 13
 // console.log("process.env".yellow, Object.keys(process.env));
 // console.log("App Config".red);
 // console.log("PORT:".blue, PORT);
@@ -28,5 +30,6 @@ function getDatabaseUri() {
 
 module.exports = {
   PORT,
+  BCRYPT_WORK_FACTOR,
   getDatabaseUri,
 };

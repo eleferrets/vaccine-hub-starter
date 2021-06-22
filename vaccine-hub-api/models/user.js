@@ -1,5 +1,8 @@
+const bcrypt = require("bcrypt")
 const db = require("../db");
-const { UnauthorizedError } = require("../utils/errors");
+const {BCRYPT_WORK_FACTOR} = require("../config")
+const { BadRequestError, UnauthorizedError } = require("../utils/errors");
+
 
 class User {
   static async login(credentials) {
@@ -17,12 +20,61 @@ class User {
   static async register(credentials) {
     // user should submit email, pw, rsvp status, and # of guests
     // if any of fields are missing, throw error
+    const requiredFields = ["email", "password", "first_name", "last_name", "location"]
+    requiredFields.forEach(field => {
+        // Checks whether the credentials has the value we are trying to access
+        if (!credentials.hasOwnProperty(field)) {
+            throw new BadRequestError(`Missing ${field} in request body.`)
+        }
+    })
+  if (credentials.email.indexOf("@") <= 0) {
+      throw new BadRequestError("Invalid email.")
+  }
     // make sure no user already exists in the system with that email
     // if one does, throw and error
+    const existingUser = await User.fetchUserByEmail(credentials.email)
+    if (existingUser) {
+        throw new BadRequestError(`Duplicate email: ${credentials.email}`)
+    }
     // take the users password, and hash it
+    const hashedPassword = await bcrypt.hash(credentials.password, BCRYPT_WORK_FACTOR);
     // take the users email and lowercase it
+    
+    const lowercasedEmail = credentials.email.toLowerCase()
     // create a new user in the db with all info
+    
+    const result = await db.query(`
+    INSERT INTO users (
+        email,
+        password,
+        first_name,
+        last_name,
+        location
+    )
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, email, first_name, last_name, location, date;`,
+    [lowercasedEmail, hashedPassword, credentials.first_name, credentials.last_name, credentials.location]
+    )
     // return the user
+    const user = result.rows[0]
+    return user
   }
+    static async fetchUserByEmail(email) {
+        if (!email) {
+            throw new BadRequestError("No email provided")
+        }
+        // The query where we get all the users
+
+        // Query parameters are the $ thing, and that is useful for sql injection prevention,
+        // so this is best practice
+        const query = `SELECT * FROM users WHERE email = $1`
+        // Our query, and the array of all the parameters to be substituted into the query
+        const result = await db.query(query, [email.toLowerCase()])
+        // Grab the first row of results provided by postgres
+        const user = result.rows[0]
+
+        return user
+    }
 }
+
 module.exports = User;
